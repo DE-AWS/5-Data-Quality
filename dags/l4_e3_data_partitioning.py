@@ -1,34 +1,50 @@
 #Instructions
+#1 - Retrieve the execution_date from kwargs
+#2 - Modify the bikeshare DAG to load data month by month, instead of loading it all at once, every time. 
+
+
 # Remember to run "/opt/airflow/start.sh" command to start the web server. Once the Airflow web server is ready,  open the Airflow UI using the "Access Airflow" button. Turn your DAG “On”, and then Run your DAG. If you get stuck, you can take a look at the solution file in the workspace/airflow/dags folder in the workspace and the video walkthrough on the next page.
-#1 - Run the DAG as it is first, and observe the Airflow UI
-#2 - Next, open up the DAG and add the create and load tasks as directed in the TODOs
-#3 - Reload the Airflow UI and run the DAG once more, observing the Airflow UI
 
 import pendulum
+
 
 from airflow.decorators import dag, task
 from airflow.secrets.metastore import MetastoreBackend
 from airflow.hooks.postgres_hook import PostgresHook
 from airflow.operators.postgres_operator import PostgresOperator
-from airflow.operators.python_operator import PythonOperator
 
 #from udacity.common import sql_statements
 from sql import sql_statements
-
 @dag(
-    start_date=pendulum.now()
+    start_date=pendulum.datetime(2018, 1, 1, 0, 0, 0, 0),
+    end_date=pendulum.datetime(2018, 2, 1, 0, 0, 0, 0),
+    schedule_interval='@monthly',
+    max_active_runs=1    
 )
-def data_lineage():
+def data_partitioning():
 
 
     @task()
-    def load_trip_data_to_redshift():
+    def load_trip_data_to_redshift(*args, **kwargs):
         metastoreBackend = MetastoreBackend()
         aws_connection=metastoreBackend.get_connection("aws_credentials")
         redshift_hook = PostgresHook("redshift")
-        sql_stmt = sql_statements.COPY_ALL_TRIPS_SQL.format(
+        # # #
+        # TODO: How do we get the execution_date from our context?
+        # execution_date=kwargs["<REPLACE>"]
+
+        execution_date = kwargs["execution_date"]
+        # # #
+
+        # # #
+        # TODO: modify the parameters when formatting sql_statements.COPY_MONTHLY_TRIPS_SQL
+        # to include the year and month the pipeline executed
+        #
+        sql_stmt = sql_statements.COPY_MONTHLY_TRIPS_SQL.format(
             aws_connection.login,
             aws_connection.password,
+            year=execution_date.year,
+            month=execution_date.month
         )
         redshift_hook.run(sql_stmt)
 
@@ -53,26 +69,15 @@ def data_lineage():
         sql=sql_statements.CREATE_TRIPS_TABLE_SQL
     )
 
+
     create_stations_table = PostgresOperator(
         task_id="create_stations_table",
         postgres_conn_id="redshift",
-        sql=sql_statements.CREATE_STATIONS_TABLE_SQL
+        sql=sql_statements.CREATE_STATIONS_TABLE_SQL,
     )
 
-    calculate_traffic_task = PostgresOperator(
-        task_id='calculate_location_traffic',
-        postgres_conn_id="redshift",
-        sql=sql_statements.LOCATION_TRAFFIC_SQL_CREATE
-    )
-
-    location_traffic_drop = PostgresOperator(
-        task_id="location_traffic_drop",
-        postgres_conn_id="redshift",
-        sql=sql_statements.LOCATION_TRAFFIC_SQL_DROP
-    )
-
-    create_trips_table >> load_trip_data_to_redshift_task >> location_traffic_drop >> calculate_traffic_task
+    create_trips_table >> load_trip_data_to_redshift_task
     create_stations_table >> load_station_data_to_redshift_task
 
-data_pipeline_schdules_dag = data_lineage()
+data_partitioning_dag = data_partitioning()
 
