@@ -4,6 +4,7 @@
 1. [Instalar y ejecutar airflow](#schema1)
 2. [Data Scheduling en Apache Airflow](#schema2)
 3. [Data Partitioning en Apache Airflow](#schema3)
+4. [Data Quality Requirements](#schema4)
 
 
 <hr>
@@ -160,6 +161,7 @@ cada día de forma independiente.
 <a name='schema4'></a>
 
 ## 4. Data Quality Requirements
+
 Se refiere a los criterios o estándares que se establecen para evaluar y garantizar la calidad de los datos 
 en un contexto específico. La calidad de los datos es un aspecto crítico en cualquier entorno donde se manipulan 
 y utilizan datos, ya que afecta directamente la confiabilidad y la eficacia de los procesos y decisiones basadas en 
